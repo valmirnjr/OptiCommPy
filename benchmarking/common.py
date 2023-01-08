@@ -18,6 +18,6 @@ def getSigRx():
 
 
 def get_expected_BPS_results():
-    y_CPR = np.load("benchmarking/y_CPR.npy")
-    θ = np.load("benchmarking/θ.npy")
+    y_CPR = np.load("benchmarking/expected_y_CPR.npy")
+    θ = np.load("benchmarking/expected_θ.npy")
     return y_CPR, θ
