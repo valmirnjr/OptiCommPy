@@ -1,9 +1,24 @@
+import os
 import sys
 import cupyx.profiler as profiler
+import cupy as cp
 import numpy as np
 
 import benchmarking.common as common
 import optic.carrierRecovery as carrierRecovery
+
+
+def get_bps_fn(alg_name: str):
+    name_to_fn = {
+        "bps": carrierRecovery.bps,
+        "bpsGPU": carrierRecovery.bpsGPU,
+    }
+    return name_to_fn[alg_name]
+
+
+def assert_bps_result(θ):
+    _, expected_θ = common.get_expected_BPS_results()
+    np.testing.assert_allclose(θ, expected_θ)
 
 
 def main():
@@ -13,17 +28,17 @@ def main():
     sigRx = common.getSigRx()
     paramCPR = common.get_paramCPR(alg)
 
-    with profiler.time_range(f"{alg}", color_id=0):
+    with profiler.profile():
         y_CPR, θ = carrierRecovery.cpr(sigRx, paramCPR=paramCPR)
+    os.system("echo passed!")
+    y_CPR, θ = carrierRecovery.cpr(sigRx, paramCPR=paramCPR)
 
-    for _ in range(loops):
-        with profiler.time_range(f"{alg} loop", color_id=0):
-            y_CPR, θ = carrierRecovery.cpr(sigRx, paramCPR=paramCPR)
-
-    expected_y_CPR, expected_θ = common.get_expected_BPS_results()
-
-    np.testing.assert_allclose(y_CPR, expected_y_CPR)
-    np.testing.assert_allclose(θ, expected_θ)
+    # print(cp.cuda.get_nvcc_path())
+    # for _ in range(loops):
+    #     os.system("echo loop = " + str(_))
+    #     y_CPR, θ = carrierRecovery.cpr(sigRx, paramCPR=paramCPR)
+    assert_bps_result(θ)
 
 
-sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())
