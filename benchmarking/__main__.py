@@ -8,14 +8,6 @@ import benchmarking.common as common
 import optic.carrierRecovery as carrierRecovery
 
 
-def get_bps_fn(alg_name: str):
-    name_to_fn = {
-        "bps": carrierRecovery.bps,
-        "bpsGPU": carrierRecovery.bpsGPU,
-    }
-    return name_to_fn[alg_name]
-
-
 def assert_bps_result(θ):
     _, expected_θ = common.get_expected_BPS_results()
     np.testing.assert_allclose(θ, expected_θ)

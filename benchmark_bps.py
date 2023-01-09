@@ -16,8 +16,6 @@ def main():
     sigRx = common.getSigRx()
     paramCPR = common.get_paramCPR(alg)
 
-    y_CPR, θ = carrierRecovery.cpr(sigRx, paramCPR=paramCPR)
-
     results = profiler.benchmark(
         carrierRecovery.cpr,
         (sigRx,),
@@ -30,6 +28,7 @@ def main():
     )
     print(results)
 
+    y_CPR, θ = carrierRecovery.cpr(sigRx, paramCPR=paramCPR)
     expected_y_CPR, expected_θ = common.get_expected_BPS_results()
 
     np.testing.assert_allclose(θ, expected_θ)

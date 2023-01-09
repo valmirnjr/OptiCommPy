@@ -89,6 +89,7 @@ def cpr(Ei, symbTx=[], paramCPR=[]):
         θ = bps(Ei, N // 2, constSymb, B)
     elif alg == "bpsGPU":
         θ = bpsGPU(Ei, N // 2, constSymb, B)
+        # free_gpu_memory()
     else:
         raise ValueError("CPR algorithm incorrectly specified.")
     # yappi.get_func_stats().print_all()
@@ -159,70 +160,48 @@ def bps(Ei, N, constSymb, B):
     return θ
 
 
-@njit
-def gen_test_phases(num_rotations: int) -> np.ndarray:
-    return np.arange(num_rotations) * (cp.pi / 2) / num_rotations
-
-
-# @njit
-def min_dist_to_constellation_symbols(symbols, const_symb):
-    new_shape = (len(const_symb), len(symbols))
-    resized_symbols = np.resize(symbols, new_shape).transpose()
-
-    dist_to_each_const_symbol = np.abs(resized_symbols - const_symb) ** 2
-    return dist_to_each_const_symbol.min(axis=1)
-
-
-# @njit
-def get_optimum_phase_angle(ϕ_test, dmin):
-    """
-    The optimum phase angle is determined by searching the minimum sum of
-    distance values.
-    """
-    sumDmin = np.sum(dmin, axis=1)
-    optimum_phase_index = np.argmin(sumDmin)
-    return ϕ_test[optimum_phase_index]
-
-
-# @cupyx.profiler.time_range()
-def bps_min_dist_numpy(x, ϕ_test, constSymb):
-    x_expanded = x[:, :, np.newaxis]
-    ϕ_expanded = np.exp(1j * ϕ_test)[None, None, :]
-    rotated_x = x_expanded * ϕ_expanded
-    constSymb_expanded = constSymb[None, None, None, :]
-    dist = np.abs(np.subtract(
-        rotated_x[:, :, :, None], constSymb_expanded)) ** 2
-    min_dist = np.min(dist, axis=3)
-
-    return min_dist
+def free_gpu_memory(*vars_to_free):
+    for v in vars_to_free:
+        del v
+    mempool = cp.get_default_memory_pool()
+    mempool.free_all_blocks()
 
 
 def bpsGPU(Ei, N, constSymb, B):
-    nModes = Ei.shape[1]
+    Ei = cp.asarray(Ei)
+    constSymb = cp.asarray(constSymb)
 
-    zeroPad = np.zeros((N, nModes), dtype="complex")
-    x = np.concatenate(
+    ϕ_test = np.arange(B) * (np.pi / 2) / B
+    ϕ_test_gpu = cp.asarray(ϕ_test)
+
+    nModes = Ei.shape[1]
+    zeroPad = cp.zeros((N, nModes), dtype="complex")
+    x = cp.concatenate(
         (zeroPad, Ei, zeroPad)
     )  # pad start and end of the signal with zeros
 
-    ϕ_test = gen_test_phases(B)
-
-    x_gpu = cp.asarray(x)
-    ϕ_test_gpu = cp.asarray(ϕ_test)
-    constSymb_gpu = cp.asarray(constSymb)
-
-    x_expanded = x_gpu[:, :, cp.newaxis]
+    x_expanded = x[:, :, cp.newaxis]
     ϕ_expanded = cp.exp(1j * ϕ_test_gpu)[None, None, :]
     rotated_x = x_expanded * ϕ_expanded
-    constSymb_expanded = constSymb_gpu[None, None, None, :]
+
+    # free_gpu_memory(x, x_expanded)
+
+    constSymb_expanded = constSymb[None, None, None, :]
+
     dist = cp.absolute(cp.subtract(
         rotated_x[:, :, :, None], constSymb_expanded)) ** 2
     min_dist = cp.min(dist, axis=3)
 
+    # free_gpu_memory(dist, rotated_x)
+
     window_filter = cp.ones((2 * N + 1, 1, 1))
     window_sums = signal.oaconvolve(min_dist, window_filter, mode="valid")
 
+    # free_gpu_memory(min_dist)
+
     ind_rot = cp.argmin(window_sums, axis=2)
+
+    # free_gpu_memory(ind_rot)
 
     θ = ϕ_test_gpu[ind_rot]
 
