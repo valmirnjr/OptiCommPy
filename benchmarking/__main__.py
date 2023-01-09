@@ -28,9 +28,6 @@ def main():
     sigRx = common.getSigRx()
     paramCPR = common.get_paramCPR(alg)
 
-    with profiler.profile():
-        y_CPR, θ = carrierRecovery.cpr(sigRx, paramCPR=paramCPR)
-    os.system("echo passed!")
     y_CPR, θ = carrierRecovery.cpr(sigRx, paramCPR=paramCPR)
 
     # print(cp.cuda.get_nvcc_path())

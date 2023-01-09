@@ -161,7 +161,7 @@ def bps(Ei, N, constSymb, B):
 
 @njit
 def gen_test_phases(num_rotations: int) -> np.ndarray:
-    return np.arange(num_rotations) * (np.pi / 2) / num_rotations
+    return np.arange(num_rotations) * (cp.pi / 2) / num_rotations
 
 
 # @njit
@@ -182,71 +182,6 @@ def get_optimum_phase_angle(ϕ_test, dmin):
     sumDmin = np.sum(dmin, axis=1)
     optimum_phase_index = np.argmin(sumDmin)
     return ϕ_test[optimum_phase_index]
-
-
-# @njit
-def bpsGPU2(Ei, N, constSymb, B, prec=cp.complex128):
-    nModes = Ei.shape[1]
-
-    ϕ_test = gen_test_phases(B)
-
-    θ = np.zeros(Ei.shape, dtype="float")
-
-    zeroPad = np.zeros((N, nModes), dtype="complex")
-    x = np.concatenate(
-        (zeroPad, Ei, zeroPad)
-    )  # pad start and end of the signal with zeros
-
-    num_symbols_after_padding = x.shape[0]
-
-    # start = cuda.grid(1)
-
-    for mode_index in range(nModes):
-
-        # Minimum distance for each test phase
-        dmin = np.zeros((B, 2 * N + 1), dtype="float")
-
-        for symbol_index in range(num_symbols_after_padding):
-            symbol = x[symbol_index, mode_index]
-            symbol_rotations = symbol * np.exp(1j * ϕ_test)
-
-            dmin = min_dist_to_constellation_symbols(
-                symbol_rotations, constSymb)
-            # for indPhase, ϕ in enumerate(ϕ_test):
-            #     rotated_symbol = symbol * np.exp(1j * ϕ)
-            #     dmin[indPhase, -1] = min_dist_to_constellation_symbols(
-            #         rotated_symbol, constSymb)
-            if symbol_index >= 2 * N:
-                θ[symbol_index - 2 * N,
-                    mode_index] = get_optimum_phase_angle(ϕ_test, dmin)
-            dmin = np.roll(dmin, -1)
-
-
-# @cupyx.profiler.time_range()
-def bps_min_dist(x, ϕ_test, constSymb):
-    os.system("echo entered minDist!")
-    x_gpu = cp.asarray(x)
-    ϕ_test_gpu = cp.asarray(ϕ_test)
-    constSymb_gpu = cp.asarray(constSymb)
-    os.system("echo point 1!")
-
-    x_expanded = x_gpu[:, :, cp.newaxis]
-    ϕ_expanded = cp.exp(1j * ϕ_test_gpu)[None, None, :]
-    rotated_x = x_expanded * ϕ_expanded
-    constSymb_expanded = constSymb_gpu[None, None, None, :]
-    dist = cp.absolute(cp.subtract(
-        rotated_x[:, :, :, None], constSymb_expanded)) ** 2
-    min_dist = cp.min(dist, axis=3)
-    os.system("echo passed minDist!")
-
-    window_filter = cp.ones((2 * N + 1, 1, 1))
-    window_sums = signal.oaconvolve(min_dist, window_filter, mode="valid")
-
-    ind_rot = cp.argmin(window_sums, axis=2)
-
-    θ = ϕ_test[ind_rot]
-
-    return cp.asnumpy(θ)
 
 
 # @cupyx.profiler.time_range()
@@ -272,24 +207,26 @@ def bpsGPU(Ei, N, constSymb, B):
 
     ϕ_test = gen_test_phases(B)
 
-    os.system("echo before minDist!")
-    cp.cuda.nvtx.RangePush("Mark_bps_min_dist")
-    min_dist = bps_min_dist(x, ϕ_test, constSymb)
-    cp.cuda.nvtx.RangePop()
-    os.system("echo after minDist!")
-    # min_dist = bps_min_dist_numpy(x, ϕ_test, constSymb)
+    x_gpu = cp.asarray(x)
+    ϕ_test_gpu = cp.asarray(ϕ_test)
+    constSymb_gpu = cp.asarray(constSymb)
 
-    # min_dist_windows = np.lib.stride_tricks.sliding_window_view(
-    #     min_dist, 2 * N + 1, (0))
+    x_expanded = x_gpu[:, :, cp.newaxis]
+    ϕ_expanded = cp.exp(1j * ϕ_test_gpu)[None, None, :]
+    rotated_x = x_expanded * ϕ_expanded
+    constSymb_expanded = constSymb_gpu[None, None, None, :]
+    dist = cp.absolute(cp.subtract(
+        rotated_x[:, :, :, None], constSymb_expanded)) ** 2
+    min_dist = cp.min(dist, axis=3)
 
-    # window_sums = cupyx.scipy.ndimage.convolve(min_dist,)
-    # window_sums = np.sum(min_dist_windows, axis=3)
-    indRot = np.argmin(window_sums, axis=2)
+    window_filter = cp.ones((2 * N + 1, 1, 1))
+    window_sums = signal.oaconvolve(min_dist, window_filter, mode="valid")
 
-    θ = ϕ_test[indRot]
-    os.system("echo passed θ!")
+    ind_rot = cp.argmin(window_sums, axis=2)
 
-    return θ
+    θ = ϕ_test_gpu[ind_rot]
+
+    return cp.asnumpy(θ)
 
 
 @njit

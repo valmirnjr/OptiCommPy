@@ -18,22 +18,22 @@ def main():
 
     y_CPR, θ = carrierRecovery.cpr(sigRx, paramCPR=paramCPR)
 
-    # results = profiler.benchmark(
-    #     carrierRecovery.cpr,
-    #     (sigRx,),
-    #     {
-    #         "paramCPR": paramCPR
-    #     },
-    #     n_repeat=loops,
-    #     n_warmup=1,
-    #     name=alg
-    # )
-    # print(results)
+    results = profiler.benchmark(
+        carrierRecovery.cpr,
+        (sigRx,),
+        {
+            "paramCPR": paramCPR
+        },
+        n_repeat=loops,
+        n_warmup=1,
+        name=alg
+    )
+    print(results)
 
-    # expected_y_CPR, expected_θ = common.get_expected_BPS_results()
+    expected_y_CPR, expected_θ = common.get_expected_BPS_results()
 
-    # np.testing.assert_allclose(θ, expected_θ)
-    # np.testing.assert_allclose(y_CPR, expected_y_CPR)
+    np.testing.assert_allclose(θ, expected_θ)
+    np.testing.assert_allclose(y_CPR, expected_y_CPR)
 
 
 if __name__ == "__main__":
