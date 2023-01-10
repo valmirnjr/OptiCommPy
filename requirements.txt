@@ -6,3 +6,11 @@ xeus-python>=0.12.5
 numba>=0.54.1
 tqdm>=4.64.1
 simple-pid>=1.0.1
+cupy==11.4.0
+cupy_cuda11x==11.4.0
+ipython==8.8.0
+scikit_commpy==0.8.0
+scipy==1.10.0
+setuptools==45.2.0
+simple_pid==1.0.1
+tqdm==4.64.1
