@@ -1,18 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from numba import njit, cuda
+from numba import njit
 from numpy.fft import fft, fftfreq, fftshift
 
 from optic.dsp import pnorm
 from optic.modulation import GrayMapping
 
 import cupy as cp
-import cupyx
 from cupyx.scipy import signal
-import yappi
-import os
-
-yappi.set_clock_type("wall")
 
 
 def cpr(Ei, symbTx=[], paramCPR=[]):
@@ -82,7 +77,6 @@ def cpr(Ei, symbTx=[], paramCPR=[]):
     Ei, _ = fourthPowerFOE(Ei, 1/Ts)
     Ei = pnorm(Ei)
 
-    # yappi.start()
     if alg == "ddpll":
         θ = ddpll(Ei, Ts, Kv, tau1, tau2, constSymb, symbTx, pilotInd)
     elif alg == "bps":
@@ -92,8 +86,6 @@ def cpr(Ei, symbTx=[], paramCPR=[]):
         # free_gpu_memory()
     else:
         raise ValueError("CPR algorithm incorrectly specified.")
-    # yappi.get_func_stats().print_all()
-    # yappi.get_func_stats().save("ystats1.ys")
     θ = np.unwrap(4 * θ, axis=0) / 4
 
     Eo = Ei * np.exp(1j * θ)
